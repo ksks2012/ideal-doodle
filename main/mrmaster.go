@@ -9,10 +9,12 @@ package main
 // Please do not change this file.
 //
 
-import "mapreduce/mr"
-import "time"
-import "os"
-import "fmt"
+import (
+	"fmt"
+	"mapreduce/mr"
+	"os"
+	"time"
+)
 
 func main() {
 	if len(os.Args) < 2 {
