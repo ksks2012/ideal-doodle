@@ -1,5 +1,5 @@
 // Ref from https://gist.github.com/ohmpatel1997/3b5b164d11053ca82cbe901e35b6c0d3#file-log-extraction-go
-package main
+package util
 
 import (
 	"bufio"
@@ -9,9 +9,9 @@ import (
 	"sync"
 )
 
-var BLOCK_SIZE = 4 * 1024
+const BLOCK_SIZE = 4 * 1024
 
-func Process(fileCount int, f *os.File) error {
+func FileProcess(fileCount int, f *os.File) error {
 
 	linesPool := sync.Pool{
 		New: func() interface{} {
@@ -25,10 +25,9 @@ func Process(fileCount int, f *os.File) error {
 	var wg sync.WaitGroup
 
 	blockCount := 0
-	ch := make(chan int, 1)
-	ch <- blockCount
 	for {
 		buf := linesPool.Get().([]byte)
+		defer linesPool.Put(buf)
 
 		n, err := r.Read(buf)
 		buf = buf[:n]
