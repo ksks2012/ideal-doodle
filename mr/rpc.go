@@ -7,14 +7,29 @@ package mr
 //
 
 import (
+	"mapreduce/util"
 	"os"
 	"strconv"
+
+	"github.com/google/uuid"
 )
 
 //
 // example to show how to declare the arguments
 // and reply for an RPC.
 //
+
+type RegistArgs struct {
+	WorkerID uuid.UUID
+}
+
+type RegistReply struct {
+	Success bool
+}
+
+type GetJobReply struct {
+	Job util.Job
+}
 
 type ExampleArgs struct {
 	X int
@@ -34,4 +49,13 @@ func masterSock() string {
 	s := "/var/tmp/824-mr-"
 	s += strconv.Itoa(os.Getuid())
 	return s
+}
+
+func (r *GetJobReply) setExitReply() {
+	job := util.Job{Action: util.Exit}
+	r.Job = job
+}
+
+func (r *GetJobReply) setJobReply(job util.Job) {
+	r.Job = job
 }

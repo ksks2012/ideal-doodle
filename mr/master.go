@@ -1,19 +1,91 @@
 package mr
 
 import (
+	"container/list"
+	"fmt"
 	"log"
+	"mapreduce/util"
 	"net"
 	"net/http"
 	"net/rpc"
 	"os"
+
+	"github.com/google/uuid"
 )
 
 type Master struct {
 	// Your definitions here.
-
+	WorkerData map[uuid.UUID]util.WorkerData // info of worker
+	JobQueue   list.List
 }
 
+// TODO: check worker state 10s (timeout)
+// Job state: Doing -> Waiting
+// Worker state: Running -> Error
+
 // Your code here -- RPC handlers for the worker to call.
+func (m *Master) Regist(args *RegistArgs, reply *RegistReply) error {
+	_, isExist := m.WorkerData[args.WorkerID]
+	if !isExist {
+		m.WorkerData[args.WorkerID] = util.WorkerData{
+			State: util.Init,
+			Job:   util.Job{},
+		}
+		reply.Success = true
+		m.Print()
+		return nil
+	}
+	reply.Success = false
+	m.Print()
+	return nil
+}
+
+func (m *Master) GetJob(args *RegistArgs, reply *GetJobReply) error {
+	// Get worker info storage in master
+	value, isExist := m.WorkerData[args.WorkerID]
+
+	// None regist worker
+	if !isExist {
+		reply.setExitReply()
+		m.Print()
+		return nil
+	}
+
+	// Get job from queue
+	e := m.JobQueue.Front()
+
+	// Worker is not in initial state || No job
+	if value.State != util.Init || e == nil {
+		value.SetExit()
+		reply.setExitReply()
+		m.Print()
+		return nil
+	}
+
+	// Assignment Job to Worker
+	job := e.Value.(util.Job)
+	value.SetRunning(job)
+	reply.setJobReply(job)
+	m.JobQueue.Remove(e)
+	m.Print()
+	return nil
+}
+
+func (m *Master) Print() error {
+	fmt.Printf("\n")
+	fmt.Printf("WorkerData:\n")
+	for k, v := range m.WorkerData {
+		fmt.Print(k, v)
+	}
+
+	fmt.Printf("\n")
+	fmt.Printf("JobQueue:\n")
+	for e := m.JobQueue.Front(); e != nil; e = e.Next() {
+		j := e.Value.(util.Job)
+		fmt.Print(j)
+	}
+	return nil
+}
 
 //
 // an example RPC handler.
@@ -59,10 +131,18 @@ func (m *Master) Done() bool {
 // nReduce is the number of reduce tasks to use.
 //
 func MakeMaster(files []string, nReduce int) *Master {
-	m := Master{}
-
+	m := Master{WorkerData: make(map[uuid.UUID]util.WorkerData)}
+	m.Print()
 	// Your code here.
-
+	for _, file := range files {
+		job := util.Job{
+			Action:   util.Map,
+			State:    util.Waiting,
+			FileName: file,
+		}
+		m.JobQueue.PushBack(job)
+	}
+	m.Print()
 	m.server()
 	return &m
 }
