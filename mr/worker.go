@@ -5,6 +5,8 @@ import (
 	"hash/fnv"
 	"log"
 	"net/rpc"
+
+	"github.com/google/uuid"
 )
 
 //
@@ -35,7 +37,20 @@ func Worker(mapf func(string, string) []KeyValue,
 
 	// uncomment to send the Example RPC to the master.
 	// CallExample()
+	// TODO: worker rpc master function
+	id := uuid.New()
+	args := RegistArgs{}
+	args.WorkerID = id
+	reply := RegistReply{}
 
+	// Regist
+	call("Master.Regist", &args, &reply)
+	if reply.Success == true {
+		fmt.Print("call Master.GetJob")
+		reply := GetJobReply{}
+		call("Master.GetJob", &args, &reply)
+		fmt.Print(reply.Job)
+	}
 }
 
 //
