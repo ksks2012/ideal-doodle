@@ -32,6 +32,7 @@
     pg-{name}.txt
     ```
     
+- Suppose we have a shared file system
 
 # Job
 
@@ -51,6 +52,7 @@
 - file size → split to block
     - line
     - keys (file count, block count)
+- **Shuffle ?**
 
 ## Master
 
@@ -63,6 +65,27 @@
 - queue data states map reduce
 - parse key-value of split data to worker
 - restore location of Intermediate file
+
+### Method implement
+
+- Regist
+    - args
+        - worker id
+    - reply
+        - sucess or not
+    - sate
+        - worker: init
+- GetJob
+    - args
+        - worker id
+    - reply
+        - Job
+    - sate
+        - worker: not init → exit
+    - flow
+        1. Check **Worker** is Regist
+        2. Check **Worker** init and **Job** exist
+        3. Assignment Job to Worker
 
 ### Flow
 
