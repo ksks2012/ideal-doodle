@@ -11,7 +11,16 @@ import (
 
 const BLOCK_SIZE = 4 * 1024
 
-func FileProcess(fileCount int, f *os.File) error {
+func FileProcess(fileCount int, fileName string) error {
+
+	file, err := os.Open(fileName)
+
+	if err != nil {
+		fmt.Println("cannot able to read the file", err)
+		return err
+	}
+
+	defer file.Close() //close after checking err
 
 	linesPool := sync.Pool{
 		New: func() interface{} {
@@ -20,7 +29,7 @@ func FileProcess(fileCount int, f *os.File) error {
 		},
 	}
 
-	r := bufio.NewReader(f)
+	r := bufio.NewReader(file)
 
 	var wg sync.WaitGroup
 

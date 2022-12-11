@@ -22,7 +22,7 @@ func TestProcess(t *testing.T) {
 	}
 
 	// execute Process funtion
-	err = util.FileProcess(0, file)
+	err = util.FileProcess(0, "test.txt")
 	if err != nil {
 		t.Errorf("Process failed: %v", err)
 	}
