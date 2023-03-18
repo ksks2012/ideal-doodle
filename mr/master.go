@@ -17,6 +17,7 @@ type Master struct {
 	// Your definitions here.
 	WorkerData map[uuid.UUID]util.WorkerData // info of worker
 	JobQueue   list.List
+	// working queue
 }
 
 // TODO: check worker state 10s (timeout)
@@ -55,6 +56,8 @@ func (m *Master) GetJob(args *RegistArgs, reply *GetJobReply) error {
 	e := m.JobQueue.Front()
 
 	// Worker is not in initial state || No job
+	// TODO: If no 'map job', return 'reduce job'
+	// TODO: Number of reduce Job is base on keys
 	if value.State != util.Init || e == nil {
 		value.SetExit()
 		reply.setExitReply()
@@ -134,12 +137,16 @@ func MakeMaster(files []string, nReduce int) *Master {
 	m := Master{WorkerData: make(map[uuid.UUID]util.WorkerData)}
 	m.Print()
 	// Your code here.
+	count := 0
 	for _, file := range files {
 		job := util.Job{
 			Action:   util.Map,
 			State:    util.Waiting,
 			FileName: file,
+			NReduce:  nReduce,
+			JobId:    count,
 		}
+		count++
 		m.JobQueue.PushBack(job)
 	}
 	m.Print()

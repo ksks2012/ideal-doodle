@@ -29,4 +29,7 @@ type Job struct {
 	Action   JobAction
 	State    JobState
 	FileName string
+	JobId    int
+	// TODO: config value
+	NReduce int
 }

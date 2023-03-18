@@ -3,8 +3,11 @@ package mr
 import (
 	"fmt"
 	"hash/fnv"
+	"io/ioutil"
 	"log"
+	"mapreduce/util"
 	"net/rpc"
+	"os"
 
 	"github.com/google/uuid"
 )
@@ -27,6 +30,34 @@ func ihash(key string) int {
 	return int(h.Sum32() & 0x7fffffff)
 }
 
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+
+func writeTmpFile(keyValues []KeyValue, job util.Job) error {
+	// TODO: config value
+	print(keyValues)
+	// return nil
+	tmpFolder := "mr-tmp/"
+
+	outputFileName := fmt.Sprintf("m-tmp-%d-%d", job.JobId, ihash(keyValues[0].Key))
+
+	file, err := os.Create(tmpFolder + outputFileName)
+	check(err)
+	defer file.Close() // ensure file is closed after writing
+
+	// Write each KeyValue pair to the file, one per line.
+	for _, kv := range keyValues {
+		line := fmt.Sprintf("%s %s\n", kv.Key, kv.Value)
+		_, err := file.WriteString(line)
+		check(err)
+	}
+
+	return nil
+}
+
 //
 // main/mrworker.go calls this function.
 //
@@ -41,16 +72,37 @@ func Worker(mapf func(string, string) []KeyValue,
 	id := uuid.New()
 	args := RegistArgs{}
 	args.WorkerID = id
-	reply := RegistReply{}
+	registReply := RegistReply{}
 
 	// Regist
-	call("Master.Regist", &args, &reply)
-	if reply.Success == true {
-		fmt.Print("call Master.GetJob")
-		reply := GetJobReply{}
-		call("Master.GetJob", &args, &reply)
-		fmt.Print(reply.Job)
+	// TODO: Retry
+	call("Master.Regist", &args, &registReply)
+	if registReply.Success == false {
+		// TODO: Exit current worker
 	}
+
+	fmt.Print("call Master.GetJob")
+	getJobReply := GetJobReply{}
+	call("Master.GetJob", &args, &getJobReply)
+	fmt.Print(getJobReply.Job)
+
+	if getJobReply.Job.Action == util.Map {
+		// Read file
+		data, err := ioutil.ReadFile(getJobReply.Job.FileName)
+		check(err)
+		mapKeyValue := mapf(getJobReply.Job.FileName, string(data))
+		// TODO: Save work result
+		writeTmpFile(mapKeyValue, getJobReply.Job)
+	} else if getJobReply.Job.Action == util.Reduce {
+		// Read file
+		empty := []string{}
+		reducef("", empty)
+	} else if getJobReply.Job.Action == util.Exit {
+		// TODO: Exit current worker
+	}
+
+	// TODO: Apply the work
+
 }
 
 //

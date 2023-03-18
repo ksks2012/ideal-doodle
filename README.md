@@ -39,12 +39,17 @@
 - implement a distributed MapReduce
     - master
     - worker
+- Action
+    - map
+    - reduce
+    - exit
 
 # Plan
 
 - [ ]  Log method
 - [ ]  Config file
 - [ ]  Test
+- [ ]  Time spend
 
 # Thinking
 
@@ -86,6 +91,9 @@
         1. Check **Worker** is Regist
         2. Check **Worker** init and **Job** exist
         3. Assignment Job to Worker
+    - hint
+        - If no 'map job', return 'reduce job'
+        - Number of reduce Job is base on keys
 
 ### Flow
 
@@ -95,6 +103,11 @@
 - provide Intermediate files
 
 ### Flow
+
+- Get job
+- Read file
+- Save work result
+- Apply the work
 
 ### method
 
@@ -107,6 +120,31 @@
     - idle
     - running
     - fail
+
+# Build
+
+## Build wc.go
+
+```go
+// $>main
+go build -buildmode=plugin ./wc.go
+```
+
+# Run
+
+## master
+
+```go
+// go run mrmaster.go ${regex of input file}
+go run mrmaster.go pg-*.txt
+```
+
+## worker
+
+```go
+// go run ./main/mrworker.go {plugin *.so}
+go run ./main/mrworker.go wc.so
+```
 
 # Future
 
