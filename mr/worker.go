@@ -1,6 +1,7 @@
 package mr
 
 import (
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"io/ioutil"
@@ -8,6 +9,7 @@ import (
 	"mapreduce/util"
 	"net/rpc"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,6 +22,13 @@ type KeyValue struct {
 	Key   string
 	Value string
 }
+
+// for sorting by key.
+type ByKey []KeyValue
+
+func (a ByKey) Len() int           { return len(a) }
+func (a ByKey) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByKey) Less(i, j int) bool { return a[i].Key < a[j].Key }
 
 //
 // use ihash(key) % NReduce to choose the reduce
@@ -39,25 +48,37 @@ func check(e error) {
 
 func writeTmpFile(keyValues []KeyValue, job util.Job) error {
 	// TODO: config value
-	print(keyValues)
-	// return nil
 	tmpFolder := "mr-tmp/"
 
-	// TODO: write in each file of bucket
-	outputFileName := fmt.Sprintf("m-tmp-%d-%d", job.JobId, ihash(keyValues[0].Key))
+	// Write in each file of bucket
+	prefixFileName := fmt.Sprintf("m-tmp-%d", job.JobId)
+	var fileBucket = make(map[int]*json.Encoder)
+	for i := 0; i < job.NReduce; i++ {
+		outputFileName := fmt.Sprintf("%s-%d", prefixFileName, i)
+		outFile, err := os.Create(tmpFolder + outputFileName)
+		check(err)
+		fileBucket[i] = json.NewEncoder(outFile)
+		defer outFile.Close()
+	}
 
-	file, err := os.Create(tmpFolder + outputFileName)
-	check(err)
-	defer file.Close() // ensure file is closed after writing
-
-	// Write each KeyValue pair to the file, one per line.
+	// Write each KeyValue pair to the file.
 	for _, kv := range keyValues {
-		line := fmt.Sprintf("%s %s\n", kv.Key, kv.Value)
-		_, err := file.WriteString(line)
+		reduce_idx := ihash(kv.Key) % job.NReduce
+		err := fileBucket[reduce_idx].Encode(&kv)
 		check(err)
 	}
 
 	return nil
+}
+
+func MapWorker(job util.Job, mapf func(string, string) []KeyValue) {
+	// Read file
+	data, err := ioutil.ReadFile(job.FileName)
+	check(err)
+	mapKeyValue := mapf(job.FileName, string(data))
+	sort.Sort(ByKey(mapKeyValue))
+	// Save work result
+	writeTmpFile(mapKeyValue, job)
 }
 
 //
@@ -83,22 +104,16 @@ func Worker(mapf func(string, string) []KeyValue,
 		// TODO: Exit current worker
 	}
 
-	fmt.Print("call Master.GetJob")
-	getJobReply := GetJobReply{}
-	call("Master.GetJob", &args, &getJobReply)
-	fmt.Print(getJobReply.Job)
-
 	// TODO: config value
 	retry := 3
 	for {
+		log.Print("call Master.GetJob")
+		getJobReply := GetJobReply{}
+		call("Master.GetJob", &args, &getJobReply)
+		log.Print(getJobReply.Job)
 		switch getJobReply.Job.Action {
 		case util.Map:
-			// Read file
-			data, err := ioutil.ReadFile(getJobReply.Job.FileName)
-			check(err)
-			mapKeyValue := mapf(getJobReply.Job.FileName, string(data))
-			// TODO: Save work result
-			writeTmpFile(mapKeyValue, getJobReply.Job)
+			MapWorker(getJobReply.Job, mapf)
 			retry = 3
 		case util.Reduce:
 			// Read file
@@ -106,7 +121,7 @@ func Worker(mapf func(string, string) []KeyValue,
 			reducef("", empty)
 			retry = 3
 		case util.Exit:
-			// TODO: Exit current worker
+			return
 		default:
 			log.Printf("Error Action: %v would retry times: %d", getJobReply.Job.Action, retry)
 			if retry < 0 {
@@ -116,6 +131,7 @@ func Worker(mapf func(string, string) []KeyValue,
 		}
 		// TODO: Apply the work
 
+		// TODO: config value
 		time.Sleep(500 * time.Millisecond)
 	}
 }
