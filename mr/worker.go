@@ -8,6 +8,7 @@ import (
 	"mapreduce/util"
 	"net/rpc"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -42,6 +43,7 @@ func writeTmpFile(keyValues []KeyValue, job util.Job) error {
 	// return nil
 	tmpFolder := "mr-tmp/"
 
+	// TODO: write in each file of bucket
 	outputFileName := fmt.Sprintf("m-tmp-%d-%d", job.JobId, ihash(keyValues[0].Key))
 
 	file, err := os.Create(tmpFolder + outputFileName)
@@ -86,23 +88,36 @@ func Worker(mapf func(string, string) []KeyValue,
 	call("Master.GetJob", &args, &getJobReply)
 	fmt.Print(getJobReply.Job)
 
-	if getJobReply.Job.Action == util.Map {
-		// Read file
-		data, err := ioutil.ReadFile(getJobReply.Job.FileName)
-		check(err)
-		mapKeyValue := mapf(getJobReply.Job.FileName, string(data))
-		// TODO: Save work result
-		writeTmpFile(mapKeyValue, getJobReply.Job)
-	} else if getJobReply.Job.Action == util.Reduce {
-		// Read file
-		empty := []string{}
-		reducef("", empty)
-	} else if getJobReply.Job.Action == util.Exit {
-		// TODO: Exit current worker
+	// TODO: config value
+	retry := 3
+	for {
+		switch getJobReply.Job.Action {
+		case util.Map:
+			// Read file
+			data, err := ioutil.ReadFile(getJobReply.Job.FileName)
+			check(err)
+			mapKeyValue := mapf(getJobReply.Job.FileName, string(data))
+			// TODO: Save work result
+			writeTmpFile(mapKeyValue, getJobReply.Job)
+			retry = 3
+		case util.Reduce:
+			// Read file
+			empty := []string{}
+			reducef("", empty)
+			retry = 3
+		case util.Exit:
+			// TODO: Exit current worker
+		default:
+			log.Printf("Error Action: %v would retry times: %d", getJobReply.Job.Action, retry)
+			if retry < 0 {
+				return
+			}
+			retry--
+		}
+		// TODO: Apply the work
+
+		time.Sleep(500 * time.Millisecond)
 	}
-
-	// TODO: Apply the work
-
 }
 
 //
