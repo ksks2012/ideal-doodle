@@ -85,7 +85,7 @@ func (m *Master) Print() error {
 	fmt.Printf("JobQueue:\n")
 	for e := m.JobQueue.Front(); e != nil; e = e.Next() {
 		j := e.Value.(util.Job)
-		fmt.Print(j)
+		fmt.Print(j, "\n")
 	}
 	return nil
 }
@@ -126,6 +126,37 @@ func (m *Master) Done() bool {
 	// Your code here.
 
 	return ret
+}
+
+func (m *Master) Report(args *ReportArgs, reply *ReportReply) error {
+	reply.Success = false
+
+	// Your code here.
+	if args.Job.Action == util.Map {
+		// Add reduce job to queue
+		args.Job.Action = util.Reduce
+		args.Job.State = util.Waiting
+		m.JobQueue.PushBack(args.Job)
+		reply.Success = true
+	}
+	switch args.Job.Action {
+	case util.Map:
+		// Add reduce job to queue
+		args.Job.Action = util.Reduce
+		args.Job.State = util.Waiting
+		m.JobQueue.PushBack(args.Job)
+		reply.Success = true
+	case util.Reduce:
+		// TODO:
+		args.Job.Action = util.Exit
+		args.Job.State = util.Done
+	case util.Exit:
+		return nil
+	default:
+		log.Printf("Error Action: %v", args.Job.Action)
+	}
+
+	return nil
 }
 
 //

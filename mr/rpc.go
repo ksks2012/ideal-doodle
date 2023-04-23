@@ -27,6 +27,14 @@ type RegistReply struct {
 	Success bool
 }
 
+type ReportArgs struct {
+	Job util.Job
+}
+
+type ReportReply struct {
+	Success bool
+}
+
 type GetJobReply struct {
 	Job util.Job
 }

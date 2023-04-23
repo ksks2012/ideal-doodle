@@ -79,6 +79,9 @@ func MapWorker(job util.Job, mapf func(string, string) []KeyValue) {
 	sort.Sort(ByKey(mapKeyValue))
 	// Save work result
 	writeTmpFile(mapKeyValue, job)
+	args := ReportArgs{job}
+	doneReply := ReportReply{}
+	call("Master.Report", &args, &doneReply)
 }
 
 //
