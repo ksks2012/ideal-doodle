@@ -132,13 +132,6 @@ func (m *Master) Report(args *ReportArgs, reply *ReportReply) error {
 	reply.Success = false
 
 	// Your code here.
-	if args.Job.Action == util.Map {
-		// Add reduce job to queue
-		args.Job.Action = util.Reduce
-		args.Job.State = util.Waiting
-		m.JobQueue.PushBack(args.Job)
-		reply.Success = true
-	}
 	switch args.Job.Action {
 	case util.Map:
 		// Add reduce job to queue
