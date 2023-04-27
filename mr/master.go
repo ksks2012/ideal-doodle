@@ -20,6 +20,7 @@ type Master struct {
 	ReduceJobQueue list.List
 	DoneJobQueue   list.List
 	WorkerCount    int
+	NReduce        int
 	// working queue
 
 }
@@ -82,8 +83,13 @@ func (m *Master) GetJob(args *RegistArgs, reply *GetJobReply) error {
 		}
 	}
 
+	if m.DoneJobQueue.Len() == (m.WorkerCount + m.NReduce) {
+		reply.setExitReply()
+		m.Print()
+		return nil
+	}
+
 	// Worker is not in initial state || No job
-	// TODO: If no 'map job', return 'reduce job'
 	// TODO: Number of reduce Job is base on keys
 	if value.State != util.Init {
 		value.SetExit()
@@ -92,7 +98,6 @@ func (m *Master) GetJob(args *RegistArgs, reply *GetJobReply) error {
 		return nil
 	}
 
-	m.Print()
 	return nil
 }
 
@@ -215,6 +220,7 @@ func MakeMaster(files []string, nReduce int) *Master {
 		m.MapJobQueue.PushBack(job)
 	}
 	m.WorkerCount = count
+	m.NReduce = nReduce
 	m.Print()
 	m.server()
 	return &m
