@@ -15,9 +15,13 @@ import (
 
 type Master struct {
 	// Your definitions here.
-	WorkerData map[uuid.UUID]util.WorkerData // info of worker
-	JobQueue   list.List
+	WorkerData     map[uuid.UUID]util.WorkerData // info of worker
+	MapJobQueue    list.List
+	ReduceJobQueue list.List
+	DoneJobQueue   list.List
+	WorkerCount    int
 	// working queue
+
 }
 
 // TODO: check worker state 10s (timeout)
@@ -53,23 +57,41 @@ func (m *Master) GetJob(args *RegistArgs, reply *GetJobReply) error {
 	}
 
 	// Get job from queue
-	e := m.JobQueue.Front()
+	if m.MapJobQueue.Len() != 0 {
+		top := m.MapJobQueue.Front()
+		if top != nil {
+			// Assignment Map Job to Worker
+			job := top.Value.(util.Job)
+			value.SetRunning(job)
+			reply.setJobReply(job)
+			m.MapJobQueue.Remove(top)
+			m.Print()
+			return nil
+		}
+	}
+	if m.ReduceJobQueue.Len() != 0 {
+		top := m.ReduceJobQueue.Front()
+		if top != nil {
+			// Assignment Reduce Job to Worker
+			job := top.Value.(util.Job)
+			value.SetRunning(job)
+			reply.setJobReply(job)
+			m.ReduceJobQueue.Remove(top)
+			m.Print()
+			return nil
+		}
+	}
 
 	// Worker is not in initial state || No job
 	// TODO: If no 'map job', return 'reduce job'
 	// TODO: Number of reduce Job is base on keys
-	if value.State != util.Init || e == nil {
+	if value.State != util.Init {
 		value.SetExit()
 		reply.setExitReply()
 		m.Print()
 		return nil
 	}
 
-	// Assignment Job to Worker
-	job := e.Value.(util.Job)
-	value.SetRunning(job)
-	reply.setJobReply(job)
-	m.JobQueue.Remove(e)
 	m.Print()
 	return nil
 }
@@ -82,8 +104,15 @@ func (m *Master) Print() error {
 	}
 
 	fmt.Printf("\n")
-	fmt.Printf("JobQueue:\n")
-	for e := m.JobQueue.Front(); e != nil; e = e.Next() {
+	fmt.Printf("MapJobQueue:\n")
+	for e := m.MapJobQueue.Front(); e != nil; e = e.Next() {
+		j := e.Value.(util.Job)
+		fmt.Print(j, "\n")
+	}
+
+	fmt.Printf("\n")
+	fmt.Printf("ReduceJobQueue:\n")
+	for e := m.ReduceJobQueue.Front(); e != nil; e = e.Next() {
 		j := e.Value.(util.Job)
 		fmt.Print(j, "\n")
 	}
@@ -135,14 +164,26 @@ func (m *Master) Report(args *ReportArgs, reply *ReportReply) error {
 	switch args.Job.Action {
 	case util.Map:
 		// Add reduce job to queue
-		args.Job.Action = util.Reduce
-		args.Job.State = util.Waiting
-		m.JobQueue.PushBack(args.Job)
+		args.Job.State = util.Done
+		m.DoneJobQueue.PushBack(args.Job)
 		reply.Success = true
+		// size of m.DoneJobQueue
+		if m.DoneJobQueue.Len() == m.WorkerCount {
+			for i := 0; i < args.Job.NReduce; i++ {
+				job := util.Job{
+					Action:   util.Reduce,
+					State:    util.Waiting,
+					FileName: "m-tmp-",
+					NReduce:  args.Job.NReduce,
+					JobId:    i,
+				}
+				m.ReduceJobQueue.PushBack(job)
+			}
+		}
 	case util.Reduce:
 		// TODO:
-		args.Job.Action = util.Exit
 		args.Job.State = util.Done
+		m.DoneJobQueue.PushBack(args.Job)
 	case util.Exit:
 		return nil
 	default:
@@ -171,8 +212,9 @@ func MakeMaster(files []string, nReduce int) *Master {
 			JobId:    count,
 		}
 		count++
-		m.JobQueue.PushBack(job)
+		m.MapJobQueue.PushBack(job)
 	}
+	m.WorkerCount = count
 	m.Print()
 	m.server()
 	return &m
