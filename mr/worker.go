@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"io"
 	"io/ioutil"
 	"log"
 	"mapreduce/util"
@@ -80,8 +81,65 @@ func MapWorker(job util.Job, mapf func(string, string) []KeyValue) {
 	// Save work result
 	writeTmpFile(mapKeyValue, job)
 	args := ReportArgs{job}
-	doneReply := ReportReply{}
-	call("Master.Report", &args, &doneReply)
+	reportReply := ReportReply{}
+	call("Master.Report", &args, &reportReply)
+}
+
+func readTmpFile(job util.Job) ([]string, error) {
+	// TODO: config value
+	tmpFolder := "mr-tmp/"
+	inputPrefixFileName := "m-tmp"
+
+	// define return value
+	var fileBucket = make(map[int]*json.Decoder)
+	for i := 0; i < job.NReduce; i++ {
+		inputFileName := fmt.Sprintf("%s-%d-%d", inputPrefixFileName, i, job.JobId)
+		fullPath := tmpFolder + inputFileName
+		_, err := os.Stat(fullPath)
+		if os.IsExist(err) {
+			fmt.Printf("file %s not exist\n", fullPath)
+			return []string{}, os.ErrNotExist
+		}
+		inputFile, err := os.Open(fullPath)
+		check(err)
+		defer inputFile.Close()
+		fileBucket[i] = json.NewDecoder(inputFile)
+	}
+
+	// Read each KeyValue pair from the file.
+	var keyValues []string
+	for {
+		var kv KeyValue
+		err := fileBucket[0].Decode(&kv)
+		if err == io.EOF {
+			break
+		}
+		check(err)
+		keyValues = append(keyValues, kv.Key)
+	}
+	fmt.Println(keyValues)
+	return keyValues, nil
+}
+
+func writeOutputFile(keyValues []KeyValue, job util.Job) error {
+	// TODO: merge file IO
+	// tmpFolder := "mr-tmp/"
+	// outputPrefixFileName := "m-out-"
+	return nil
+}
+
+func ReduceWorker(job util.Job, reducef func(string, []string) string) error {
+	// Read file by NReduce
+	readTmpFile(job)
+	// Count key in each file
+	empty := []string{}
+	// save result
+	reducef("", empty)
+
+	args := ReportArgs{job}
+	reportReply := ReportReply{}
+	call("Master.Report", &args, &reportReply)
+	return nil
 }
 
 //
@@ -120,8 +178,7 @@ func Worker(mapf func(string, string) []KeyValue,
 			retry = 3
 		case util.Reduce:
 			// Read file
-			empty := []string{}
-			reducef("", empty)
+			ReduceWorker(getJobReply.Job, reducef)
 			retry = 3
 		case util.Exit:
 			return

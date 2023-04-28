@@ -179,7 +179,7 @@ func (m *Master) Report(args *ReportArgs, reply *ReportReply) error {
 					Action:   util.Reduce,
 					State:    util.Waiting,
 					FileName: "m-tmp-",
-					NReduce:  args.Job.NReduce,
+					NReduce:  m.WorkerCount,
 					JobId:    i,
 				}
 				m.ReduceJobQueue.PushBack(job)
