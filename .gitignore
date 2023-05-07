@@ -2,3 +2,6 @@
 *.sh
 test/*.txt
 main/mr-tmp
+main/mrmaster
+main/mrsequential
+main/mrworker
