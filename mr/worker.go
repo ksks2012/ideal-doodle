@@ -49,15 +49,12 @@ func checkErr(e error) {
 }
 
 func writeTmpFile(keyValues []KeyValue, job util.Job) error {
-	// TODO: config value
-	tmpFolder := "mr-tmp/"
-
 	// Write in each file of bucket
-	prefixFileName := fmt.Sprintf("m-tmp-%d", job.JobId)
+	prefixFileName := fmt.Sprintf("mr-tmp-%d", job.JobId)
 	var fileBucket = make(map[int]*json.Encoder)
 	for i := 0; i < job.NReduce; i++ {
 		outputFileName := fmt.Sprintf("%s-%d", prefixFileName, i)
-		outFile, err := os.Create(tmpFolder + outputFileName)
+		outFile, err := os.Create(outputFileName)
 		checkErr(err)
 		fileBucket[i] = json.NewEncoder(outFile)
 		defer outFile.Close()
@@ -87,15 +84,13 @@ func MapWorker(job util.Job, mapf func(string, string) []KeyValue) {
 }
 
 func readTmpFile(job util.Job) ([]KeyValue, error) {
-	// TODO: config value
-	tmpFolder := "mr-tmp/"
-	inputPrefixFileName := "m-tmp"
+	inputPrefixFileName := "mr-tmp"
 
 	// define return value
 	var fileBucket = make(map[int]*json.Decoder)
 	for i := 0; i < job.NReduce; i++ {
 		inputFileName := fmt.Sprintf("%s-%d-%d", inputPrefixFileName, i, job.JobId)
-		fullPath := tmpFolder + inputFileName
+		fullPath := inputFileName
 		_, err := os.Stat(fullPath)
 		if os.IsExist(err) {
 			fmt.Printf("file %s not exist\n", fullPath)
@@ -122,11 +117,9 @@ func readTmpFile(job util.Job) ([]KeyValue, error) {
 }
 
 func writeOutputFile(keyValues []KeyValue, job util.Job, reducef func(string, []string) string) error {
-	// TODO: merge file IO
-	tmpFolder := "mr-tmp/"
-	outputPrefixFileName := "m-out-"
+	outputPrefixFileName := "mr-out-"
 
-	outputFileName := tmpFolder + outputPrefixFileName + strconv.Itoa(job.JobId)
+	outputFileName := outputPrefixFileName + strconv.Itoa(job.JobId)
 	outFile, err := os.Create(outputFileName)
 	log.Println("complete to ", job.JobId, "start to write in to ", outputFileName)
 	checkErr(err)
@@ -214,6 +207,10 @@ func Worker(mapf func(string, string) []KeyValue,
 			retry--
 		}
 		// TODO: Apply the work
+		getJobReply.Job.Action = util.Exit
+		args := ReportArgs{getJobReply.Job}
+		reportReply := ReportReply{}
+		call("Master.Report", &args, &reportReply)
 
 		// TODO: config value
 		time.Sleep(500 * time.Millisecond)

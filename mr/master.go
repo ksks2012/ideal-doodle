@@ -22,7 +22,7 @@ type Master struct {
 	WorkerCount    int
 	NReduce        int
 	// working queue
-
+	Commit bool
 }
 
 // TODO: check worker state 10s (timeout)
@@ -155,11 +155,7 @@ func (m *Master) server() {
 // if the entire job has finished.
 //
 func (m *Master) Done() bool {
-	ret := false
-
-	// Your code here.
-
-	return ret
+	return m.Commit
 }
 
 func (m *Master) Report(args *ReportArgs, reply *ReportReply) error {
@@ -178,7 +174,7 @@ func (m *Master) Report(args *ReportArgs, reply *ReportReply) error {
 				job := util.Job{
 					Action:   util.Reduce,
 					State:    util.Waiting,
-					FileName: "m-tmp-",
+					FileName: "mr-tmp-",
 					NReduce:  m.WorkerCount,
 					JobId:    i,
 				}
@@ -190,6 +186,9 @@ func (m *Master) Report(args *ReportArgs, reply *ReportReply) error {
 		args.Job.State = util.Done
 		m.DoneJobQueue.PushBack(args.Job)
 	case util.Exit:
+		if m.MapJobQueue.Len() == 0 && m.ReduceJobQueue.Len() == 0 {
+			m.Commit = true
+		}
 		return nil
 	default:
 		log.Printf("Error Action: %v", args.Job.Action)
