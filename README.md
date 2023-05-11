@@ -42,7 +42,9 @@
 - Action
     - map
     - reduce
+        - job id is bucket number
     - exit
+        - no job in map and reduce queue
 
 # Plan
 
@@ -50,6 +52,8 @@
 - [ ]  Config file
 - [ ]  Test
 - [ ]  Time spend
+- [ ]  Timeout
+- [ ]  Lock
 
 # Thinking
 
@@ -94,6 +98,10 @@
     - hint
         - If no 'map job', return 'reduce job'
         - Number of reduce Job is base on keys
+- Report
+    - send work result to master
+    - Return job success
+        - adadd done job to done queue
 
 ### Flow
 
@@ -108,6 +116,7 @@
 - Read file
 - Save work result
 - Apply the work
+- exit signal from master
 
 ### method
 
@@ -146,6 +155,23 @@ go run mrmaster.go pg-*.txt
 go run ./main/mrworker.go wc.so
 ```
 
+# Test
+
+- Basic test, a mater with three workers
+    
+    ```go
+    ./main/test-mr.sh basic
+    ```
+    
+
+# Map
+
+# Reduce
+
+- read bucket files
+- collect same key in bucket files
+- read file by bucket
+
 # Future
 
 - communicate by grpc
@@ -154,3 +180,11 @@ go run ./main/mrworker.go wc.so
     
 - Docker
 - File System
+- message queue
+
+# Work Record
+
+- 5/7: try to pass test script
+    - worker will end on master end
+    - flow to done
+    - lock for other test
