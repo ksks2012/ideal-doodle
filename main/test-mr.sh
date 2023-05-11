@@ -11,14 +11,17 @@ RACE=
 
 function clear_output() {
     # run the test in a fresh sub-directory.
+    echo "clearing output"
     rm -rf mr-tmp
     mkdir mr-tmp || exit 1
     cd mr-tmp || exit 1
     rm -f mr-*
+    echo "cleared output"
 }
 
 function build() {
     # make sure software is freshly built.
+    echo "building"
     (cd ../../mrapps && go build $RACE -buildmode=plugin wc.go) || exit 1
     (cd ../../mrapps && go build $RACE -buildmode=plugin indexer.go) || exit 1
     (cd ../../mrapps && go build $RACE -buildmode=plugin mtiming.go) || exit 1
@@ -28,7 +31,7 @@ function build() {
     (cd .. && go build $RACE mrmaster.go) || exit 1
     (cd .. && go build $RACE mrworker.go) || exit 1
     (cd .. && go build $RACE mrsequential.go) || exit 1
-
+    echo "builded"
     failed_any=0
 }
 
@@ -36,9 +39,11 @@ function build() {
 
 function generate_correct() {
     # generate the correct output
+    echo "Generating correct output"
     ../mrsequential ../../mrapps/wc.so ../pg*txt || exit 1
     sort mr-out-0 > mr-correct-wc.txt
     rm -f mr-out*
+    echo "Generated correct output"
 }
 
 function basic_test() {
@@ -220,7 +225,7 @@ function TODO() {
 }
 
 
-
+# Prepare Stage for all tests
 clear_output
 build
 generate_correct
