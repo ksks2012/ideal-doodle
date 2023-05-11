@@ -103,6 +103,7 @@ func (m *Master) GetJob(args *RegistArgs, reply *GetJobReply) error {
 
 func (m *Master) Print() error {
 	fmt.Printf("\n")
+	fmt.Printf("************************************************\n")
 	fmt.Printf("WorkerData:\n")
 	for k, v := range m.WorkerData {
 		fmt.Print(k, v)
@@ -121,6 +122,14 @@ func (m *Master) Print() error {
 		j := e.Value.(util.Job)
 		fmt.Print(j, "\n")
 	}
+
+	fmt.Printf("\n")
+	fmt.Printf("DoneJobQueue:\n")
+	for e := m.DoneJobQueue.Front(); e != nil; e = e.Next() {
+		j := e.Value.(util.Job)
+		fmt.Print(j, "\n")
+	}
+	fmt.Printf("************************************************\n")
 	return nil
 }
 
@@ -155,7 +164,7 @@ func (m *Master) server() {
 // if the entire job has finished.
 //
 func (m *Master) Done() bool {
-	return m.Commit
+	return m.MapJobQueue.Len() == 0 && m.ReduceJobQueue.Len() == 0
 }
 
 func (m *Master) Report(args *ReportArgs, reply *ReportReply) error {
@@ -168,19 +177,6 @@ func (m *Master) Report(args *ReportArgs, reply *ReportReply) error {
 		args.Job.State = util.Done
 		m.DoneJobQueue.PushBack(args.Job)
 		reply.Success = true
-		// size of m.DoneJobQueue
-		if m.DoneJobQueue.Len() == m.WorkerCount {
-			for i := 0; i < args.Job.NReduce; i++ {
-				job := util.Job{
-					Action:   util.Reduce,
-					State:    util.Waiting,
-					FileName: "mr-tmp-",
-					NReduce:  m.WorkerCount,
-					JobId:    i,
-				}
-				m.ReduceJobQueue.PushBack(job)
-			}
-		}
 	case util.Reduce:
 		// TODO:
 		args.Job.State = util.Done
@@ -218,8 +214,21 @@ func MakeMaster(files []string, nReduce int) *Master {
 		count++
 		m.MapJobQueue.PushBack(job)
 	}
+
 	m.WorkerCount = count
 	m.NReduce = nReduce
+
+	for i := 0; i < nReduce; i++ {
+		job := util.Job{
+			Action:   util.Reduce,
+			State:    util.Waiting,
+			FileName: "mr-tmp-",
+			NReduce:  m.WorkerCount,
+			JobId:    i,
+		}
+		m.ReduceJobQueue.PushBack(job)
+	}
+
 	m.Print()
 	m.server()
 	return &m

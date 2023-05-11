@@ -90,6 +90,7 @@ func readTmpFile(job util.Job) ([]KeyValue, error) {
 	var fileBucket = make(map[int]*json.Decoder)
 	for i := 0; i < job.NReduce; i++ {
 		inputFileName := fmt.Sprintf("%s-%d-%d", inputPrefixFileName, i, job.JobId)
+		log.Printf("[Worker] input file: %s", inputFileName)
 		fullPath := inputFileName
 		_, err := os.Stat(fullPath)
 		if os.IsExist(err) {
@@ -206,11 +207,6 @@ func Worker(mapf func(string, string) []KeyValue,
 			}
 			retry--
 		}
-		// TODO: Apply the work
-		getJobReply.Job.Action = util.Exit
-		args := ReportArgs{getJobReply.Job}
-		reportReply := ReportReply{}
-		call("Master.Report", &args, &reportReply)
 
 		// TODO: config value
 		time.Sleep(500 * time.Millisecond)
