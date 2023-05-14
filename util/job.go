@@ -5,6 +5,7 @@ type JobAction int
 const (
 	Map JobAction = iota
 	Reduce
+	Wait
 	Exit
 )
 

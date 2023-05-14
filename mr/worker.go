@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
-	"io"
 	"io/ioutil"
 	"log"
 	"mapreduce/util"
@@ -87,32 +86,27 @@ func readTmpFile(job util.Job) ([]KeyValue, error) {
 	inputPrefixFileName := "mr-tmp"
 
 	// define return value
-	var fileBucket = make(map[int]*json.Decoder)
+	keyValues := []KeyValue{}
+	// Read each KeyValue pair from the file.
 	for i := 0; i < job.NReduce; i++ {
 		inputFileName := fmt.Sprintf("%s-%d-%d", inputPrefixFileName, i, job.JobId)
 		log.Printf("[Worker] input file: %s", inputFileName)
-		fullPath := inputFileName
-		_, err := os.Stat(fullPath)
+		_, err := os.Stat(inputFileName)
 		if os.IsExist(err) {
-			fmt.Printf("file %s not exist\n", fullPath)
+			fmt.Printf("file %s not exist\n", inputFileName)
 			return []KeyValue{}, os.ErrNotExist
 		}
-		inputFile, err := os.Open(fullPath)
+		inputFile, err := os.Open(inputFileName)
 		checkErr(err)
 		defer inputFile.Close()
-		fileBucket[i] = json.NewDecoder(inputFile)
-	}
 
-	// Read each KeyValue pair from the file.
-	keyValues := []KeyValue{}
-	for {
+		decoder := json.NewDecoder(inputFile)
 		var kv KeyValue
-		err := fileBucket[0].Decode(&kv)
-		if err == io.EOF {
-			break
+		for decoder.More() {
+			err := decoder.Decode(&kv)
+			checkErr(err)
+			keyValues = append(keyValues, kv)
 		}
-		checkErr(err)
-		keyValues = append(keyValues, kv)
 	}
 	return keyValues, nil
 }
@@ -151,6 +145,7 @@ func ReduceWorker(job util.Job, reducef func(string, []string) string) error {
 	// Read file by NReduce
 	mapStr, err := readTmpFile(job)
 	checkErr(err)
+	sort.Sort(ByKey(mapStr))
 	// save result
 	writeOutputFile(mapStr, job, reducef)
 
@@ -197,6 +192,9 @@ func Worker(mapf func(string, string) []KeyValue,
 		case util.Reduce:
 			// Read file
 			ReduceWorker(getJobReply.Job, reducef)
+			retry = 3
+		case util.Wait:
+			time.Sleep(2000 * time.Millisecond)
 			retry = 3
 		case util.Exit:
 			return

@@ -46,6 +46,7 @@ func (m *Master) Regist(args *RegistArgs, reply *RegistReply) error {
 	return nil
 }
 
+// TODO: improve this
 func (m *Master) GetJob(args *RegistArgs, reply *GetJobReply) error {
 	// Get worker info storage in master
 	value, isExist := m.WorkerData[args.WorkerID]
@@ -70,6 +71,24 @@ func (m *Master) GetJob(args *RegistArgs, reply *GetJobReply) error {
 			return nil
 		}
 	}
+
+	log.Printf("[Master] Wait Check %v vs %v", m.DoneJobQueue.Len(), m.WorkerCount)
+
+	// Wating for all of Map job done
+	if m.DoneJobQueue.Len() < m.WorkerCount {
+		job := util.Job{
+			Action:   util.Wait,
+			State:    util.Waiting,
+			FileName: "",
+			NReduce:  m.WorkerCount,
+			JobId:    0,
+		}
+		value.SetRunning(job)
+		reply.setJobReply(job)
+		m.Print()
+		return nil
+	}
+
 	if m.ReduceJobQueue.Len() != 0 {
 		top := m.ReduceJobQueue.Front()
 		if top != nil {
@@ -88,6 +107,8 @@ func (m *Master) GetJob(args *RegistArgs, reply *GetJobReply) error {
 		m.Print()
 		return nil
 	}
+
+	// FIXME: Bug in end ot trigger map worker
 
 	// Worker is not in initial state || No job
 	// TODO: Number of reduce Job is base on keys
@@ -110,21 +131,21 @@ func (m *Master) Print() error {
 	}
 
 	fmt.Printf("\n")
-	fmt.Printf("MapJobQueue:\n")
+	fmt.Printf("[Master] MapJobQueue:\n")
 	for e := m.MapJobQueue.Front(); e != nil; e = e.Next() {
 		j := e.Value.(util.Job)
 		fmt.Print(j, "\n")
 	}
 
 	fmt.Printf("\n")
-	fmt.Printf("ReduceJobQueue:\n")
+	fmt.Printf("[Master] ReduceJobQueue:\n")
 	for e := m.ReduceJobQueue.Front(); e != nil; e = e.Next() {
 		j := e.Value.(util.Job)
 		fmt.Print(j, "\n")
 	}
 
 	fmt.Printf("\n")
-	fmt.Printf("DoneJobQueue:\n")
+	fmt.Printf("[Master] DoneJobQueue:\n")
 	for e := m.DoneJobQueue.Front(); e != nil; e = e.Next() {
 		j := e.Value.(util.Job)
 		fmt.Print(j, "\n")
