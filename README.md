@@ -162,7 +162,14 @@ go run ./main/mrworker.go wc.so
     ```go
     ./main/test-mr.sh basic
     ```
-    
+
+## Result
+
+[x] basic
+[x] multiple
+[x] parallmap
+[x] parallreduce (master end before workere end)
+[] crash
 
 # Map
 

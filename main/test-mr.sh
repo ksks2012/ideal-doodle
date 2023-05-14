@@ -11,17 +11,17 @@ RACE=
 
 function clear_output() {
     # run the test in a fresh sub-directory.
-    echo "clearing output"
+    echo "*** clearing output"
     rm -rf mr-tmp
     mkdir mr-tmp || exit 1
     cd mr-tmp || exit 1
     rm -f mr-*
-    echo "cleared output"
+    echo "*** cleared output"
 }
 
 function build() {
     # make sure software is freshly built.
-    echo "building"
+    echo "*** building"
     (cd ../../mrapps && go build $RACE -buildmode=plugin wc.go) || exit 1
     (cd ../../mrapps && go build $RACE -buildmode=plugin indexer.go) || exit 1
     (cd ../../mrapps && go build $RACE -buildmode=plugin mtiming.go) || exit 1
@@ -31,7 +31,7 @@ function build() {
     (cd .. && go build $RACE mrmaster.go) || exit 1
     (cd .. && go build $RACE mrworker.go) || exit 1
     (cd .. && go build $RACE mrsequential.go) || exit 1
-    echo "builded"
+    echo "*** builded"
     failed_any=0
 }
 
@@ -39,15 +39,15 @@ function build() {
 
 function generate_correct() {
     # generate the correct output
-    echo "Generating correct output"
+    echo "*** Generating correct output"
     ../mrsequential ../../mrapps/wc.so ../pg*txt || exit 1
     sort mr-out-0 > mr-correct-wc.txt
     rm -f mr-out*
-    echo "Generated correct output"
+    echo "*** Generated correct output"
 }
 
 function basic_test() {
-    echo '***' Starting wc test.
+    echo '***' Starting basic test.
 
     timeout -k 2s 180s ../mrmaster ../pg*txt &
 
@@ -82,7 +82,7 @@ function basic_test() {
     wait ; wait ; wait
 }
 
-function TODO() {
+function multiple() {
     # now indexer
     rm -f mr-*
 
@@ -111,8 +111,9 @@ function TODO() {
     fi
 
     wait ; wait
+}
 
-
+function parallmap() {
     echo '***' Starting map parallelism test.
 
     rm -f mr-out* mr-worker*
@@ -141,8 +142,9 @@ function TODO() {
     fi
 
     wait ; wait
+}
 
-
+function parallreduce() {
     echo '***' Starting reduce parallelism test.
 
     rm -f mr-out* mr-worker*
@@ -170,7 +172,9 @@ function TODO() {
     ../mrsequential ../../mrapps/nocrash.so ../pg*txt || exit 1
     sort mr-out-0 > mr-correct-crash.txt
     rm -f mr-out*
+}
 
+function crash() {
     echo '***' Starting crash test.
 
     rm -f mr-done
@@ -224,18 +228,57 @@ function TODO() {
     fi
 }
 
+function all() {
+    echo '***' Starting all of test.
+    basic_test
+    multiple
+    parallmap
+    parallreduce
+    crash
+}
+
+function help() {
+    echo "Enable flags:"
+    echo "- all: run all of the tests"
+    echo "- basic: basic test"
+    echo "- multiple: test with indexer.so"
+    echo "- parallmap: run with map parallelism test"
+    echo "- parallreduce: run with reduce parallelism test"
+    echo "- crash: run with crash.so"
+}
+
 
 # Prepare Stage for all tests
-clear_output
-build
-generate_correct
+if [ -z "$1" ]
+then
+    help
+elif [ "$1" == "help" ]
+then
+    help
+else
+    clear_output
+    build
+    generate_correct
 
-case "$1" in
-    basic) 
-      echo "*** basic test"
-      basic_test
-      ;;
-    TODO) echo "*** TODO"
-      ;;
-    *) echo "*** unknow"
-esac
+    case "$1" in
+        all)
+        all
+        ;;
+        basic) 
+        basic_test
+        ;;
+        multiple)
+        multiple
+        ;;
+        parallmap)
+        parallmap
+        ;;
+        parallreduce)
+        parallreduce
+        ;;
+        crash)
+        crash
+        ;;
+        *) echo "*** unknow"
+    esac
+fi
