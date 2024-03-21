@@ -4,31 +4,31 @@
 
 - Supplied code
     
-    ```rust
+    ```
     src/main/mrsequential.go
     ```
     
     - word-count
         
-        ```rust
+        ```
         mrapps/wc.go
         ```
         
     - text indexer
         
-        ```rust
+        ```
         mrapps/indexer.go
         ```
         
 - Output files
     
-    ```rust
+    ```
     mr-out-{count}
     ```
     
 - Input files
     
-    ```rust
+    ```
     pg-{name}.txt
     ```
     
